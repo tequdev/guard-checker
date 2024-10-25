@@ -1,4 +1,4 @@
-guard_checker: guard_checker.cpp Guard.h Enum.h
-	g++ -o guard_checker guard_checker.cpp --std=c++17 -g
-install: guard_checker
-	cp guard_checker /usr/bin/
+guard-checker: guard_checker.cpp Guard.h Enum.h
+	g++ -o guard-checker guard_checker.cpp --std=c++17 -g
+install: guard-checker
+	cp guard-checker /usr/bin/

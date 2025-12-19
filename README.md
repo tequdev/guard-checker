@@ -6,6 +6,30 @@ A repository for providing binaries.
 
 This repository fetches source code from [Xahau/xahaud](https://github.com/Xahau/xahaud) as a git submodule and builds binaries for multiple platforms to release them.
 
+## Installation
+
+To install the latest release binary:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Xahau/guard-checker/main/install.sh | bash
+```
+
+Or download and run manually:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Xahau/guard-checker/main/install.sh -o install.sh
+chmod +x install.sh
+./install.sh
+```
+
+The script will automatically detect your OS, architecture, and libc type, then download and install the appropriate binary.
+
+You can specify a custom installation directory using the `INSTALL_DIR` environment variable:
+
+```bash
+INSTALL_DIR=$HOME/.local/bin ./install.sh
+```
+
 ## Setup
 
 ### Cloning the Repository

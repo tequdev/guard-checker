@@ -1,0 +1,165 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux targets
+          - os: ubuntu-latest
+            arch: x64
+            libc: gnu
+            target_triple: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: x64
+            libc: musl
+            target_triple: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            arch: arm64
+            libc: gnu
+            target_triple: aarch64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: arm64
+            libc: musl
+            target_triple: aarch64-unknown-linux-musl
+          - os: ubuntu-latest
+            arch: x86
+            libc: gnu
+            target_triple: i686-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: x86
+            libc: musl
+            target_triple: i686-unknown-linux-musl
+          - os: ubuntu-latest
+            arch: arm
+            libc: gnu
+            target_triple: arm-unknown-linux-gnueabihf
+          - os: ubuntu-latest
+            arch: arm
+            libc: musl
+            target_triple: arm-unknown-linux-musleabihf
+          # macOS targets
+          - os: macos-latest
+            arch: x64
+            libc: ""
+            target_triple: x86_64-apple-darwin
+          - os: macos-latest
+            arch: arm64
+            libc: ""
+            target_triple: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup build environment (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git
+          if [ "${{ matrix.libc }}" = "musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Setup build environment (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake findutils
+          PATH=$(brew --prefix)/opt/findutils/libexec/gnubin:$PATH
+
+      - name: Build binary
+        working-directory: xahaud/src/ripple/app/hook
+        env:
+          TARGET_TRIPLE: ${{ matrix.target_triple }}
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.libc }}" = "musl" ]; then
+            # For musl builds, set CC to use musl-gcc
+            export CC=musl-gcc
+            export CXX=musl-g++
+          fi
+          make
+
+      - name: Determine binary name
+        id: binary_name
+        run: |
+          OS_NAME=""
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            OS_NAME="linux"
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            OS_NAME="macos"
+          fi
+          
+          ARCH_NAME="${{ matrix.arch }}"
+          
+          if [ -z "${{ matrix.libc }}" ]; then
+            BINARY_NAME="guard-checker-${OS_NAME}-${ARCH_NAME}"
+          else
+            BINARY_NAME="guard-checker-${OS_NAME}-${ARCH_NAME}-${{ matrix.libc }}"
+          fi
+          
+          echo "name=${BINARY_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Find and rename binary
+        working-directory: xahaud/src/ripple/app/hook
+        run: |
+          # Find the built binary (could be named 'guard_checker')
+          if [ -f "guard_checker" ]; then
+            mv guard_checker "${{ steps.binary_name.outputs.name }}"
+          else
+            # Try to find any executable
+            BINARY=$(find . -maxdepth 1 -type f -executable | head -n 1)
+            if [ -n "$BINARY" ]; then
+              mv "$BINARY" "${{ steps.binary_name.outputs.name }}"
+            else
+              echo "Error: Could not find built binary"
+              exit 1
+            fi
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.binary_name.outputs.name }}
+          path: xahaud/src/ripple/app/hook/${{ steps.binary_name.outputs.name }}
+          retention-days: 1
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

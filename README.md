@@ -73,7 +73,7 @@ git commit -m "Update submodule to track <branch-name> branch"
 To build locally:
 
 ```bash
-cd xahaud/src/ripple/app/hook
+cd xahaud/include/xrpl/hook
 make
 ```
 

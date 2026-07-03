@@ -82,7 +82,7 @@ jobs:
           PATH=$(brew --prefix)/opt/findutils/libexec/gnubin:$PATH
 
       - name: Build binary
-        working-directory: xahaud/src/ripple/app/hook
+        working-directory: xahaud/include/xrpl/hook
         env:
           TARGET_TRIPLE: ${{ matrix.target_triple }}
         run: |
@@ -114,7 +114,7 @@ jobs:
           echo "name=${BINARY_NAME}" >> $GITHUB_OUTPUT
 
       - name: Find and rename binary
-        working-directory: xahaud/src/ripple/app/hook
+        working-directory: xahaud/include/xrpl/hook
         run: |
           # Find the built binary (could be named 'guard_checker')
           if [ -f "guard_checker" ]; then
@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.binary_name.outputs.name }}
-          path: xahaud/src/ripple/app/hook/${{ steps.binary_name.outputs.name }}
+          path: xahaud/include/xrpl/hook/${{ steps.binary_name.outputs.name }}
           retention-days: 1
 
   create-release:

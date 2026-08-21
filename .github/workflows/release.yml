@@ -65,7 +65,7 @@ jobs:
 
       - name: Verify binary architecture
         run: |
-          sh scripts/check-binary-arch.sh \
+          sh .github/scripts/check-binary-arch.sh \
             "xahaud/include/xrpl/hook/${{ matrix.asset }}" \
             "${{ matrix.os_name }}" \
             "${{ matrix.arch }}" \
@@ -81,10 +81,6 @@ jobs:
   build-musl:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    container: alpine:3.21
-    defaults:
-      run:
-        shell: sh
     strategy:
       fail-fast: false
       matrix:
@@ -103,21 +99,21 @@ jobs:
             name: linux-arm64-musl
 
     steps:
-      - name: Install Alpine packages
-        run: |
-          apk add --no-cache build-base file binutils g++ git ca-certificates libstdc++ gcompat tar
-          # JS actions refuse Alpine on arm64 when ID=alpine (actions/runner#1637).
-          sed -i 's/^ID=alpine/ID=linux/' /etc/os-release
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Build binary
-        working-directory: xahaud/include/xrpl/hook
-        run: make
+      - name: Build binary (Alpine musl)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src/xahaud/include/xrpl/hook alpine:3.21 sh -c '
+            set -eu
+            apk add --no-cache build-base g++ file binutils
+            make
+          '
+
+      - name: Fix binary ownership
+        run: sudo chown "$(id -u):$(id -g)" xahaud/include/xrpl/hook/guard_checker
 
       - name: Rename binary
         working-directory: xahaud/include/xrpl/hook
@@ -125,7 +121,7 @@ jobs:
 
       - name: Verify binary architecture
         run: |
-          sh scripts/check-binary-arch.sh \
+          sh .github/scripts/check-binary-arch.sh \
             "xahaud/include/xrpl/hook/${{ matrix.asset }}" \
             "${{ matrix.os_name }}" \
             "${{ matrix.arch }}" \

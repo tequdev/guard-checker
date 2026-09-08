@@ -1,4 +1,5 @@
 [submodule "xahaud"]
 	path = xahaud
 	url = git@github.com:Xahau/xahaud.git
+	branch = HookFeeV2
 

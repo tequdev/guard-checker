@@ -79,17 +79,19 @@ make
 
 ## Release Process
 
-1. Create and push a git tag:
+1. Run the **Build and Release** workflow manually (Actions tab, or `gh workflow run`) with:
+   - `tag`: `vX.Y.Z` for a stable release, or `vX.Y.Z-<suffix>` (e.g. `v1.0.0-rc.1`) for a prerelease
+   - `prerelease`: must be `false` for `vX.Y.Z` and `true` for `vX.Y.Z-<suffix>` (default: `true`); any other combination fails the workflow
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   gh workflow run release.yml --ref main -f tag=v1.0.0 -f prerelease=false
+   gh workflow run release.yml --ref main -f tag=v1.0.0-rc.1 -f prerelease=true
    ```
 
-2. GitHub Actions will automatically build binaries for the following platforms:
-   - **Linux**: x64 (gnu/musl), arm64 (gnu/musl), x86 (gnu/musl), arm (gnu/musl)
+2. GitHub Actions will build binaries for the following platforms:
+   - **Linux**: x64 (gnu/musl), arm64 (gnu/musl)
    - **macOS**: x64, arm64
 
-3. Once the build completes, a GitHub Release will be automatically created and all binaries will be uploaded.
+3. Once all builds succeed, the tag is created on the selected commit and a GitHub Release (stable or prerelease) is created with all binaries attached.
 
 ## Binary Naming Convention
 

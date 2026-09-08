@@ -4,15 +4,61 @@ on:
   push:
     branches:
       - '*'
-    tags:
-      - '*'
   pull_request:
     branches:
       - '*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (vX.Y.Z for stable, vX.Y.Z-<suffix> for prerelease)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark the release as a prerelease'
+        required: true
+        type: boolean
+        default: true
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v6
+
+      - name: Validate tag and prerelease flag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -eu
+          if printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            if [ "$PRERELEASE" != "false" ]; then
+              echo "::error::Stable tag '$TAG' requires prerelease=false"
+              exit 1
+            fi
+          elif printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$'; then
+            if [ "$PRERELEASE" != "true" ]; then
+              echo "::error::Prerelease tag '$TAG' requires prerelease=true"
+              exit 1
+            fi
+          else
+            echo "::error::Invalid tag '$TAG' (expected vX.Y.Z or vX.Y.Z-<suffix>)"
+            exit 1
+          fi
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null || rc=$?
+          case $rc in
+            0) echo "::error::Tag '$TAG' already exists"; exit 1 ;;
+            2) ;;
+            *) echo "::error::Failed to query remote tags (exit $rc)"; exit 1 ;;
+          esac
+
   build:
     name: ${{ matrix.name }}
+    needs: [validate]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -80,6 +126,7 @@ jobs:
 
   build-musl:
     name: ${{ matrix.name }}
+    needs: [validate]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -137,7 +184,7 @@ jobs:
   create-release:
     needs: [build, build-musl]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     steps:
@@ -152,10 +199,11 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          tag_name: ${{ inputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Release ${{ inputs.tag }}
           files: artifacts/**/*
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

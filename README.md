@@ -79,7 +79,7 @@ make
 
 ## Release Process
 
-1. Run the **Build and Release** workflow manually (Actions tab, or `gh workflow run`) with:
+1. Run the **Release** workflow manually (Actions tab, or `gh workflow run`) with:
    - `tag`: `vX.Y.Z` for a stable release, or `vX.Y.Z-<suffix>` (e.g. `v1.0.0-rc.1`) for a prerelease
    - `prerelease`: must be `false` for `vX.Y.Z` and `true` for `vX.Y.Z-<suffix>` (default: `true`); any other combination fails the workflow
    ```bash

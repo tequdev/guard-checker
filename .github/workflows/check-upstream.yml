@@ -1,0 +1,38 @@
+name: Check upstream
+
+on:
+  schedule:
+    - cron: '0 0 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Compare guard_checker sources with Xahau/xahaud release branch
+        working-directory: xahaud
+        run: |
+          set -eu
+          git fetch --depth=1 origin release
+          pinned=$(git rev-parse HEAD)
+          release=$(git rev-parse FETCH_HEAD)
+          echo "pinned:  $pinned"
+          echo "release: $release"
+          if [ "$pinned" = "$release" ]; then
+            echo "Submodule is up to date with release."
+            exit 0
+          fi
+          # Only the files that go into the guard_checker binary (see include/xrpl/hook/makefile).
+          files="include/xrpl/hook/guard_checker.cpp include/xrpl/hook/Guard.h include/xrpl/hook/Enum.h include/xrpl/hook/hook_api.macro include/xrpl/hook/makefile"
+          if git diff --quiet "$pinned" "$release" -- $files; then
+            echo "release branch moved, but guard_checker sources are unchanged."
+            exit 0
+          fi
+          git diff --stat "$pinned" "$release" -- $files
+          echo "::error::guard_checker sources changed in Xahau/xahaud release ($release). Update the xahaud submodule and cut a new release."
+          exit 1
